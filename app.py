@@ -6,6 +6,8 @@ import google.generativeai as genai
 import io
 from docx import Document
 import PyPDF2
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from io import BytesIO
 
 # Load environment variables from .env file
@@ -14,9 +16,9 @@ load_dotenv()
 # Configure Gemini API key
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Function to parse uploaded JD file (PDF or Word)
-def parse_uploaded_jd(uploaded_file):
-    """Parse the text from an uploaded JD file."""
+# Function to parse uploaded JD or Resume file (PDF or Word)
+def parse_uploaded_file(uploaded_file):
+    """Parse the text from an uploaded file (JD or Resume)."""
     try:
         if uploaded_file.name.endswith(".pdf"):
             # Extract text from PDF
@@ -70,6 +72,24 @@ def generate_interview_questions_from_jd(jd_text, num_questions):
         st.error(f"Error generating questions: {e}")
         return ""
 
+# Function to compute match score between JD and Resume
+def compute_match_score(jd_text, resume_text):
+    """Compute the similarity score between the JD and resume text."""
+    try:
+        # Vectorize the texts
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform([jd_text, resume_text])
+        
+        # Calculate cosine similarity
+        similarity_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+        
+        # Convert to percentage
+        match_score = round(similarity_score * 100, 2)
+        return match_score
+    except Exception as e:
+        st.error(f"Error calculating match score: {e}")
+        return None
+
 # Function to export data to an Excel file and return the file as a BytesIO object
 def export_to_excel(data):
     """Exports the data to an Excel file and returns the file in memory as a BytesIO object."""
@@ -112,18 +132,45 @@ def export_to_word(data):
 
 # Main Streamlit app
 def main():
+    # Add logo at the center
+    logo_url = "https://mazobeam.com/wp-content/uploads/2023/12/mazoid-1.png"
+    st.markdown(
+        f"""
+        <div style="text-align: center;">
+            <img src="{logo_url}" alt="Logo" style="width: 300px; margin-bottom: 20px;">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     st.title("MazoMate - JD-Based Interview Question Generator")
 
     # File upload for JD
-    uploaded_file = st.file_uploader("Upload Job Description (PDF or Word)", type=["pdf", "docx"])
+    uploaded_jd_file = st.file_uploader("Upload Job Description (PDF or Word)", type=["pdf", "docx"], key="jd_file")
 
-    if uploaded_file:
+    if uploaded_jd_file:
         st.info("Parsing the uploaded Job Description...")
-        jd_text = parse_uploaded_jd(uploaded_file)
+        jd_text = parse_uploaded_file(uploaded_jd_file)
 
         if jd_text:
             st.success("Job Description parsed successfully!")
             st.text_area("Parsed JD Content", jd_text, height=300)
+
+            # Optional Resume Upload
+            uploaded_resume_file = st.file_uploader("Optional: Upload Resume (PDF or Word)", type=["pdf", "docx"], key="resume_file")
+
+            if uploaded_resume_file:
+                st.info("Parsing the uploaded Resume...")
+                resume_text = parse_uploaded_file(uploaded_resume_file)
+
+                if resume_text:
+                    st.success("Resume parsed successfully!")
+                    st.text_area("Parsed Resume Content", resume_text, height=300)
+
+                    # Calculate match score
+                    match_score = compute_match_score(jd_text, resume_text)
+                    if match_score is not None:
+                        st.metric(label="Match Score", value=f"{match_score}%")
 
             # Number of questions to generate
             num_questions = st.number_input("Number of Questions to Generate", min_value=1, max_value=100, step=1, value=10)
