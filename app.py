@@ -110,7 +110,7 @@ def export_to_excel(data):
 
 # Function to export data to a Word document and return the file as a BytesIO object
 def export_to_word(data):
-    """Exports the data to a Word document and returns the file in memory as a BytesIO object."""
+    """Exports the data to a Word document and returns the file as a BytesIO object."""
     try:
         # Create a Word document
         doc = Document()
@@ -155,22 +155,6 @@ def main():
         if jd_text:
             st.success("Job Description parsed successfully!")
             st.text_area("Parsed JD Content", jd_text, height=300)
-
-            # Optional Resume Upload
-            uploaded_resume_file = st.file_uploader("Optional: Upload Resume (PDF or Word)", type=["pdf", "docx"], key="resume_file")
-
-            if uploaded_resume_file:
-                st.info("Parsing the uploaded Resume...")
-                resume_text = parse_uploaded_file(uploaded_resume_file)
-
-                if resume_text:
-                    st.success("Resume parsed successfully!")
-                    st.text_area("Parsed Resume Content", resume_text, height=300)
-
-                    # Calculate match score
-                    match_score = compute_match_score(jd_text, resume_text)
-                    if match_score is not None:
-                        st.metric(label="Match Score", value=f"{match_score}%")
 
             # Number of questions to generate
             num_questions = st.number_input("Number of Questions to Generate", min_value=1, max_value=100, step=1, value=10)
